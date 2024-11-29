@@ -1,32 +1,15 @@
-from fastapi import FastAPI, HTTPException, Body
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException
 from uuid import uuid4
-from typing import List, Dict, Optional
 import json
 
+from schema import Message, SummaryRequest, SaveRequest
+from vector_data_store import lookup_contexts
 app = FastAPI()
 
 sessions = {}
 database = {}
 
-# Models
-class Message(BaseModel):
-    message: str
 
-class SessionData(BaseModel):
-    session_id: str
-    messages: List[str]
-
-class SummaryRequest(BaseModel):
-    session_id: str
-    contexts: List[str]
-    message_history: List[str]
-
-class SaveRequest(BaseModel):
-    session_id: str
-    summary: str
-
-# Helper function to simulate a database operation
 def save_to_database(session_id: str, data: dict):
     database[session_id] = data
 
@@ -53,8 +36,7 @@ def retrieve_contexts(session_id: str):
         raise HTTPException(status_code=404, detail="Session not found")
     message_history = sessions[session_id]["messages"]
     
-    # Simulate retrieving contexts (replace with actual vector store logic)
-    retrieved_contexts = ["Context 1", "Context 2"]
+    retrieved_contexts = lookup_contexts(message_history)
     
     return {"session_id": session_id, "contexts": retrieved_contexts, "message_history": message_history}
 
@@ -78,3 +60,12 @@ def save_records(request: SaveRequest):
         "summary": request.summary
     })
     return {"message": "Session data saved", "session_id": request.session_id}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app:app",  
+        host="0.0.0.0",  
+        port=8000,
+    )

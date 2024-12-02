@@ -54,7 +54,6 @@ async def get_vectorstore():
     vectorstore = InMemoryVectorStore.from_documents(documents=documents, embedding=local_embeddings)
     return vectorstore
 
-
 ### Uncomment if you want to test the retriever ###
 # vectorstore = asyncio.run(get_vectorstore())
 

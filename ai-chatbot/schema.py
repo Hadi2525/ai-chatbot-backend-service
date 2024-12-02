@@ -15,9 +15,10 @@ class SessionData(BaseModel):
 
 class SummaryRequest(BaseModel):
     session_id: str
-    contexts: List[str]
     message_history: List[str]
 
 class SaveRequest(BaseModel):
     session_id: str
+    message_history: List[str]
+    contexts: List[str]
     summary: str

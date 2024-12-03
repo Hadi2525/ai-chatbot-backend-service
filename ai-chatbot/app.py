@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import APIKeyHeader
 from uuid import uuid4
 import json
 
@@ -11,6 +12,19 @@ sessions = {
     "000-000": {"messages": ["tell me something about energy saving"]}
 }
 database = {}
+
+API_KEY_NAME = "Authorization"
+api_key_header = APIKeyHeader(name=API_KEY_NAME)
+
+
+VALID_API_KEYS = {"full-stack-ai-lab",
+                  "secret-key",
+                  "admin-key"}
+
+def validate_api_key(api_key: str = Depends(api_key_header)):
+    if api_key not in VALID_API_KEYS:
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+    return api_key
 
 
 def save_to_database(session_id: str, data: dict):
@@ -50,7 +64,8 @@ async def retrieve_contexts(session_id: str):
     return {"session_id": session_id, "contexts": retrieved_contexts, "message_history": message_history}
 
 @app.post("/generate_summary")
-async def generate_summary(request: SummaryRequest):
+async def generate_summary(request: SummaryRequest,
+                           api_key: str = Depends(validate_api_key)):
     """Generate a summary based on retrieved contexts and message history."""
     # Simulate calling OpenAI API or another language model
     if request.session_id not in sessions:

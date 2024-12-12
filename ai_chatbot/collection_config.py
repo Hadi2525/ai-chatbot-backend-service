@@ -1,11 +1,13 @@
 from langchain_community.document_loaders import WebBaseLoader, PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
 from pymongo.mongo_client import MongoClient
 from pymongo.operations import SearchIndexModel
 from langchain_openai import OpenAIEmbeddings
 from langchain_ollama import OllamaEmbeddings
 import json
 import os
+from typing import List
 from dotenv import load_dotenv, find_dotenv
 from uuid import uuid4
 from datetime import datetime
@@ -43,7 +45,6 @@ def index_pdf_contents(pdf_folder_path):
         for file in os.listdir(pdf_folder_path):
             pdf_file_path = os.path.join(pdf_folder_path, file)
             pdf_loader = PyPDFLoader(pdf_file_path)
-            pdf_documents = []
             for i, page in enumerate(pdf_loader.lazy_load()):
                 if len(page.page_content) == 0:
                     continue
@@ -55,7 +56,6 @@ def index_pdf_contents(pdf_folder_path):
                     "source": str(file),
                     "vector_embeddings": embeddings.embed_documents(page.page_content)[0]
                 }
-                # pdf_documents.append(document)
                 collection.insert_one(document)
         return True
     except Exception as e:
@@ -94,9 +94,24 @@ def index_web_contents(urls_json_file_path):
             print(f"Failed to load URL {url}: {e}")
             return False
 
+def format_results(results) -> List[Document]:
+    """
+    Formats the results of a MongoDB aggregation pipeline
+    """
+    contexts = []
+    for result in results:
+        id = result.pop("id")
+        page_content = result.pop("text")
+        document = Document(
+            id=id,
+            page_content=page_content,
+            metadata=result
+        )
+        contexts.append(document)
+    return contexts
 
 # Define a function to run vector search queries
-def get_query_results(query):
+def get_query_results(query) -> List[Document]:
     """Gets results from a vector search query."""
 
     query_embedding = embeddings.embed_documents(query)[0]
@@ -112,7 +127,6 @@ def get_query_results(query):
         },
         {
             "$project": {
-                "id": 0,
                 "_id": 0,
                 "vector_embeddings": 0,
                 "timestamp": 0
@@ -121,8 +135,9 @@ def get_query_results(query):
     ]
 
     results = collection.aggregate(pipeline)
+    contexts = format_results(results)
 
-    return list(results)
+    return contexts
 
 
 def setup_mongodb_vector_search_index():

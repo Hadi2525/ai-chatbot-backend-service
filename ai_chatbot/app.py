@@ -63,17 +63,18 @@ def ask(session_id: str, message: Message):
         raise HTTPException(status_code=404, detail="Session not found")
     try:
         chat_history = chat_collection.find_one({"session_id": session_id})["message_history"]
-        chat_history.append(message.message)
+        chat_history.append({"message":message.message,
+                             "role": "user"})
         chat_collection.update_one({"session_id": session_id}, {"$set": {"message_history": chat_history}})
     except:
         raise HTTPException(status_code=500, detail="An error occured while saving to database")
     return {"message": "Message received", "session_id": session_id}
 
 @app.post("/retrieve_contexts")
-async def retrieve_contexts(message: str):
+def retrieve_contexts(message: str):
     """Retrieve contexts from the vector store."""
     
-    retrieved_contexts = await get_query_results(message)
+    retrieved_contexts = get_query_results(message)
     
     return { "contexts": retrieved_contexts, "message_history": message}
 

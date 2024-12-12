@@ -3,7 +3,7 @@ from langchain_core.documents import Document
 from langchain_ollama import OllamaLLM
 from langgraph.graph import START, StateGraph
 from langchain_openai import ChatOpenAI
-from ai_chatbot.collection_config import get_vectorstore
+from ai_chatbot.collection_config import get_query_results
 from typing_extensions import List, TypedDict
 
 
@@ -30,8 +30,7 @@ class State(TypedDict):
     answer: str
 
 async def retrieve(state: State):
-    vector_store = await get_vectorstore()
-    retrieved_docs = vector_store.similarity_search(state["question"])
+    retrieved_docs = get_query_results(state["question"])
     return {"context": retrieved_docs}
 
 def generate(state: State):

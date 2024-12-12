@@ -3,7 +3,7 @@ from langchain_core.documents import Document
 from langchain_ollama import OllamaLLM
 from langgraph.graph import START, StateGraph
 from langchain_openai import ChatOpenAI
-from retrieval_config import get_vectorstore
+from ai_chatbot.collection_config import get_vectorstore
 from typing_extensions import List, TypedDict
 
 

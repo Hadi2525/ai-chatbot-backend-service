@@ -112,6 +112,7 @@ def get_query_results(query):
         },
         {
             "$project": {
+                "id": 0,
                 "_id": 0,
                 "vector_embeddings": 0,
                 "timestamp": 0
@@ -121,12 +122,10 @@ def get_query_results(query):
 
     results = collection.aggregate(pipeline)
 
-    array_of_results = []
-    for doc in results:
-        array_of_results.append(doc)
-    return array_of_results
+    return list(results)
 
-def setup_mongodb_vector_search():
+
+def setup_mongodb_vector_search_index():
     """
     Sets up the MongoDB collection for the retrieval system
     """

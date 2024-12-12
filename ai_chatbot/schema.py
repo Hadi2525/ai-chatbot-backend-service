@@ -1,7 +1,9 @@
 """
 
 """
-from typing import List, Dict, Optional
+
+from typing import Dict, List, Optional
+
 from pydantic import BaseModel
 
 
@@ -9,13 +11,16 @@ from pydantic import BaseModel
 class Message(BaseModel):
     message: str
 
+
 class SessionData(BaseModel):
     session_id: str
     messages: List[str]
 
+
 class SummaryRequest(BaseModel):
     session_id: str
     message_history: List[str]
+
 
 class SaveRequest(BaseModel):
     session_id: str

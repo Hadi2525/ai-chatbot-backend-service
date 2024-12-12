@@ -1,18 +1,15 @@
 from langchain import hub
 from langchain_core.documents import Document
 from langchain_ollama import OllamaLLM
-from langgraph.graph import START, StateGraph
 from langchain_openai import ChatOpenAI
-from ai_chatbot.collection_config import get_query_results
+from langgraph.graph import START, StateGraph
 from typing_extensions import List, TypedDict
 
+from ai_chatbot.collection_config import get_query_results
 
 prompt = hub.pull("rlm/rag-prompt")
 
-llm = OllamaLLM(
-    model="llama3.2:1b",
-    temperature=0
-)
+llm = OllamaLLM(model="llama3.2:1b", temperature=0)
 # import os
 # from dotenv import load_dotenv, find_dotenv
 # _ = load_dotenv(find_dotenv(),override=True)
@@ -24,20 +21,24 @@ llm = OllamaLLM(
 
 # )
 
+
 class State(TypedDict):
     question: str
     context: List[Document]
     answer: str
 
+
 async def retrieve(state: State):
     retrieved_docs = get_query_results(state["question"])
     return {"context": retrieved_docs}
+
 
 def generate(state: State):
     docs_content = "\n\n".join(doc.page_content for doc in state["context"])
     messages = prompt.invoke({"question": state["question"], "context": docs_content})
     response = llm.invoke(messages)
     return {"answer": response}
+
 
 def get_graph():
     graph_builder = StateGraph(State).add_sequence([retrieve, generate])

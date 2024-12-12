@@ -1,20 +1,24 @@
-from langchain_community.document_loaders import WebBaseLoader, PyPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.documents import Document
-from pymongo.mongo_client import MongoClient
-from pymongo.operations import SearchIndexModel
-from langchain_openai import OpenAIEmbeddings
-from langchain_ollama import OllamaEmbeddings
 import json
 import os
-from typing import List
-from dotenv import load_dotenv, find_dotenv
-from uuid import uuid4
-from datetime import datetime
 import time
-_ = load_dotenv(find_dotenv(),override=True)
+from datetime import datetime
+from typing import List
+from uuid import uuid4
 
-URL_JSON_FILE_PATH = os.getenv("URLs_JSON_FILE_PATH", "/ai-chatbot/data/energySavingUrls.json")
+from dotenv import find_dotenv, load_dotenv
+from langchain_community.document_loaders import PyPDFLoader, WebBaseLoader
+from langchain_core.documents import Document
+from langchain_ollama import OllamaEmbeddings
+from langchain_openai import OpenAIEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pymongo.mongo_client import MongoClient
+from pymongo.operations import SearchIndexModel
+
+_ = load_dotenv(find_dotenv(), override=True)
+
+URL_JSON_FILE_PATH = os.getenv(
+    "URLs_JSON_FILE_PATH", "/ai-chatbot/data/energySavingUrls.json"
+)
 PDF_FOLDER_PATH = os.getenv("PDF_FOLDER_PATH", "/ai-chatbot/data/pdfs")
 CONN_STRING = os.getenv("CONN_STRING2")
 OAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -23,7 +27,10 @@ db = client["ai_chatbot"]
 collection = db["data"]
 
 model = "text-embedding-3-small"
-embeddings = OpenAIEmbeddings(model=model, api_key=OAI_API_KEY) #OllamaEmbeddings(model="nomic-embed-text") # 
+embeddings = OpenAIEmbeddings(
+    model=model, api_key=OAI_API_KEY
+)  # OllamaEmbeddings(model="nomic-embed-text") #
+
 
 def check_mongodb_connection(client: MongoClient):
     """
@@ -32,10 +39,11 @@ def check_mongodb_connection(client: MongoClient):
 
     # Send a ping to confirm a successful connection
     try:
-        client.admin.command('ping')
+        client.admin.command("ping")
         print("Pinged your deployment. You successfully connected to MongoDB!")
     except Exception as e:
         print(e)
+
 
 def index_pdf_contents(pdf_folder_path):
     """
@@ -54,13 +62,16 @@ def index_pdf_contents(pdf_folder_path):
                     "timestamp": datetime.now(),
                     "text": page.page_content,
                     "source": str(file),
-                    "vector_embeddings": embeddings.embed_documents(page.page_content)[0]
+                    "vector_embeddings": embeddings.embed_documents(page.page_content)[
+                        0
+                    ],
                 }
                 collection.insert_one(document)
         return True
     except Exception as e:
         print(f"Failed to index PDF contents: {e}")
         return False
+
 
 def index_web_contents(urls_json_file_path):
     """
@@ -86,13 +97,16 @@ def index_web_contents(urls_json_file_path):
                     "chunk_number": i,
                     "source": str(url),
                     "timestamp": datetime.now(),
-                    "vector_embeddings": embeddings.embed_documents(doc.page_content)[0]
+                    "vector_embeddings": embeddings.embed_documents(doc.page_content)[
+                        0
+                    ],
                 }
                 collection.insert_one(document)
             return True
         except Exception as e:
             print(f"Failed to load URL {url}: {e}")
             return False
+
 
 def format_results(results) -> List[Document]:
     """
@@ -102,13 +116,10 @@ def format_results(results) -> List[Document]:
     for result in results:
         id = result.pop("id")
         page_content = result.pop("text")
-        document = Document(
-            id=id,
-            page_content=page_content,
-            metadata=result
-        )
+        document = Document(id=id, page_content=page_content, metadata=result)
         contexts.append(document)
     return contexts
+
 
 # Define a function to run vector search queries
 def get_query_results(query) -> List[Document]:
@@ -122,16 +133,10 @@ def get_query_results(query) -> List[Document]:
                 "queryVector": query_embedding,
                 "path": "vector_embeddings",
                 "exact": True,
-                "limit": 10
+                "limit": 10,
             }
         },
-        {
-            "$project": {
-                "_id": 0,
-                "vector_embeddings": 0,
-                "timestamp": 0
-            }
-        }
+        {"$project": {"_id": 0, "vector_embeddings": 0, "timestamp": 0}},
     ]
 
     results = collection.aggregate(pipeline)
@@ -152,20 +157,20 @@ def setup_mongodb_vector_search_index():
                     "type": "vector",
                     "path": "vector_embeddings",
                     "numDimensions": 1536,
-                    "similarity": "cosine"
+                    "similarity": "cosine",
                 }
             ]
         },
         name="vector_index",
-        type="vectorSearch"
-        )
+        type="vectorSearch",
+    )
 
     result = collection.create_search_index(model=search_index_model)
 
     print("New search index named " + result + " is building.")
     # Wait for initial sync to complete
     print("Polling to check if the index is ready. This may take up to a minute.")
-    predicate=None
+    predicate = None
     if predicate is None:
         predicate = lambda index: index.get("queryable") is True
     start_time = time.time()

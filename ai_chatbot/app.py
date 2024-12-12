@@ -3,15 +3,20 @@ from fastapi.security import APIKeyHeader
 from uuid import uuid4
 import json
 
+from pymongo import MongoClient
 from schema import Message, SummaryRequest, SaveRequest
-from vector_data_store import lookup_contexts
-from chain_config import get_graph
-app = FastAPI()
+from ai_chatbot.chain_config import get_graph
+from ai_chatbot.collection_config import get_query_results
 
-sessions = {
-    "000-000": {"messages": ["tell me something about energy saving"]}
-}
-database = {}
+from dotenv import load_dotenv, find_dotenv
+import os
+load_dotenv(find_dotenv(),override=True)
+CONN_STRING = os.getenv("CONN_STRING2")
+
+app = FastAPI()
+client = MongoClient(CONN_STRING)
+db = client["ai_chatbot"]
+chat_collection = db["chat_history"]
 
 API_KEY_NAME = "Authorization"
 api_key_header = APIKeyHeader(name=API_KEY_NAME)
@@ -22,16 +27,19 @@ VALID_API_KEYS = {"full-stack-ai-lab",
                   "admin-key"}
 
 def validate_api_key(api_key: str = Depends(api_key_header)):
+    """Validate the API key."""
     if api_key not in VALID_API_KEYS:
         raise HTTPException(status_code=403, detail="Invalid API Key")
     return api_key
 
 
 def save_to_database(session_id: str, data: dict):
-    if session_id not in sessions:
+    """Save the session data to the database."""
+
+    if not chat_collection.find_one({"session_id": session_id}):
         raise HTTPException(status_code=404, detail="Session not found")
     try:
-        database[session_id] = data
+        chat_collection.update_one({"session_id": session_id}, {"$set": data})
     except:
         raise HTTPException(status_code=500, detail="An error occured while saving to database")
 
@@ -41,34 +49,40 @@ def save_to_database(session_id: str, data: dict):
 def get_session_id():
     """Generate a new session ID."""
     session_id = str(uuid4())
-    sessions[session_id] = {"messages": []}
+    try:
+        chat_collection.insert_one({"session_id": session_id,
+                                    "message_history": []})
+    except:
+        raise HTTPException(status_code=500, detail="An error occured while saving to database")
     return {"session_id": session_id}
 
 @app.post("/ask")
 def ask(session_id: str, message: Message):
     """Handle user questions."""
-    if session_id not in sessions:
+    if not chat_collection.find_one({"session_id": session_id}):
         raise HTTPException(status_code=404, detail="Session not found")
-    sessions[session_id]["messages"].append(message.message)
+    try:
+        chat_history = chat_collection.find_one({"session_id": session_id})["message_history"]
+        chat_history.append(message.message)
+        chat_collection.update_one({"session_id": session_id}, {"$set": {"message_history": chat_history}})
+    except:
+        raise HTTPException(status_code=500, detail="An error occured while saving to database")
     return {"message": "Message received", "session_id": session_id}
 
 @app.post("/retrieve_contexts")
-async def retrieve_contexts(session_id: str):
+async def retrieve_contexts(message: str):
     """Retrieve contexts from the vector store."""
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
-    message_history = sessions[session_id]["messages"][0]
     
-    retrieved_contexts = await lookup_contexts(message_history)
+    retrieved_contexts = await get_query_results(message)
     
-    return {"session_id": session_id, "contexts": retrieved_contexts, "message_history": message_history}
+    return { "contexts": retrieved_contexts, "message_history": message}
 
 @app.post("/generate_summary")
 async def generate_summary(request: SummaryRequest,
                            api_key: str = Depends(validate_api_key)):
     """Generate a summary based on retrieved contexts and message history."""
     # Simulate calling OpenAI API or another language model
-    if request.session_id not in sessions:
+    if not chat_collection.find_one({"session_id": request.session_id}):
         raise HTTPException(status_code=404, detail="Session not found")
     
     if len(request.message_history) == 0:
@@ -88,12 +102,12 @@ async def generate_summary(request: SummaryRequest,
 @app.post("/save_records")
 def save_records(request: SaveRequest):
     """Save session summary in the database."""
-    if request.session_id not in sessions:
+    if not chat_collection.find_one({"session_id": request.session_id}):
         raise HTTPException(status_code=404, detail="Session not found")
     
-    # Save the session's data to a mock database
+    message_history = chat_collection.find_one({"session_id": request.session_id})["message_history"]    
     save_to_database(request.session_id, {
-        "messages": sessions[request.session_id]["messages"],
+        "messages": message_history,
         "summary": request.summary
     })
     return {"message": "Session data saved", "session_id": request.session_id}

@@ -6,7 +6,7 @@ from dotenv import find_dotenv, load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security import APIKeyHeader
 from pymongo import MongoClient
-from schema import Message, SaveRequest, SummaryRequest
+from ai_chatbot.schema import Message, SaveRequest, SummaryRequest
 
 from ai_chatbot.chain_config import get_graph
 from ai_chatbot.collection_config import get_query_results

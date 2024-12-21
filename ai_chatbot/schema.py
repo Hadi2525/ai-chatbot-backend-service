@@ -24,6 +24,6 @@ class SummaryRequest(BaseModel):
 
 class SaveRequest(BaseModel):
     session_id: str
-    message_history: List[str]
-    contexts: List[str]
+    message_history: List[dict]
+    contexts: List[dict]
     summary: str
